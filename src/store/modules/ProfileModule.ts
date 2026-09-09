@@ -1,3 +1,4 @@
+import { markRaw } from 'vue';
 import { ActionTree, GetterTree } from 'vuex';
 
 import { CachedMod } from './TsModsModule';
@@ -26,16 +27,17 @@ export interface UnsatisfiedDependencies {
     missingDependencies: string[];
 }
 
-interface State {
+export interface State {
     activeProfile: Profile | null;
     expandedByDefault: boolean;
     funkyMode: boolean;
     modList: ManifestV2[];
-    order?: SortNaming;
-    direction?: SortDirection;
-    disabledPosition?: SortLocalDisabledMods;
+    order?: SortNaming | undefined;
+    direction?: SortDirection | undefined;
+    disabledPosition?: SortLocalDisabledMods | undefined;
     searchQuery: string;
     dismissedUpdateAll: boolean;
+    filters: Set<'Unlinked'>;
 }
 
 /**
@@ -54,6 +56,7 @@ export default {
         disabledPosition: undefined,
         searchQuery: '',
         dismissedUpdateAll: false,
+        filters: new Set(),
     }),
 
     getters: <GetterTree<State, RootState>>{
@@ -156,7 +159,8 @@ export default {
             return state.order === SortNaming.CUSTOM
                 && state.direction === SortDirection.STANDARD
                 && state.disabledPosition === SortLocalDisabledMods.CUSTOM
-                && state.searchQuery.length === 0;
+                && state.searchQuery.length === 0
+                && !state.filters.has('Unlinked');
         },
     },
 
@@ -194,7 +198,7 @@ export default {
         // Avoid calling this directly, prefer updateModList action to
         // ensure TSMM specific code gets called.
         setModList(state: State, list: ManifestV2[]) {
-            state.modList = list;
+            state.modList = list.map(markRaw);
         },
 
         setOrder(state: State, value: SortNaming) {
@@ -212,6 +216,14 @@ export default {
         setSearchQuery(state: State, value: string) {
             state.searchQuery = value.trim();
         },
+
+        scopeLocalModListToUnlinkedPackages(state: State) {
+            state.filters.add('Unlinked');
+        },
+
+        removeFilter(state: State, filter: string) {
+            state.filters.delete(filter as any);
+        }
     },
 
     actions: <ActionTree<State, RootState>>{
